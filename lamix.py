@@ -4,7 +4,7 @@
 """
 NumberPanel OTP Bot
 Mode: LAST 3 OTP ONLY
-Heroku Safe Version
+Stable + Heroku Safe
 """
 
 import time
@@ -17,6 +17,8 @@ from datetime import datetime
 BASE_URL = "http://51.89.99.105/NumberPanel"
 API_PATH = "/client/res/data_smscdr.php"
 
+# ⚠️ SECURITY NOTE:
+# Ye values Heroku Config Vars me rakhna BEST hai
 PHPSESSID = "ct38cra540a4hil76g82dirrft"
 BOT_TOKEN = "7448362382:AAGzYcF4XH5cAOIOsrvJ6E9MXqjnmOdKs2o"
 
@@ -28,13 +30,20 @@ STATE_FILE = "state.json"
 HEADERS = {
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "X-Requested-With": "XMLHttpRequest",
-    "User-Agent": "Mozilla/5.0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     "Referer": f"{BASE_URL}/client/SMSDashboard",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
 }
 
 # ================= SESSION =================
 session = requests.Session()
-session.cookies.set("PHPSESSID", PHPSESSID)
+session.cookies.set(
+    name="PHPSESSID",
+    value=PHPSESSID,
+    domain="51.89.99.105",
+    path="/"
+)
 
 # ================= HELPERS =================
 def load_state():
@@ -47,6 +56,12 @@ def save_state(state):
     json.dump(state, open(STATE_FILE, "w"))
 
 def extract_otp(text):
+    """
+    OTP formats supported:
+    123456
+    589-837
+    589 837
+    """
     if not text:
         return None
     m = re.search(r"\b(\d{3,4}[-\s]?\d{3,4})\b", text)
@@ -54,11 +69,16 @@ def extract_otp(text):
 
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    r = requests.post(url, json={
-        "chat_id": CHAT_ID,
-        "text": msg,
-        "parse_mode": "Markdown"
-    }, timeout=10)
+    r = requests.post(
+        url,
+        json={
+            "chat_id": CHAT_ID,
+            "text": msg,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True
+        },
+        timeout=10
+    )
     print("📤 Telegram:", r.status_code)
 
 # ================= START =================
@@ -67,7 +87,7 @@ print("⚡ Mode: LAST 3 OTP ONLY")
 print("📢 Group:", CHAT_ID)
 
 state = load_state()
-sent = state["sent"]
+sent = state.get("sent", [])
 
 while True:
     try:
@@ -75,7 +95,7 @@ while True:
             "fdate1": "2025-01-01 00:00:00",
             "fdate2": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "iDisplayStart": 0,
-            "iDisplayLength": 3,
+            "iDisplayLength": 3,   # 🔥 LAST 3 OTP ONLY
             "sEcho": 1,
             "_": int(time.time() * 1000),
         }
@@ -87,22 +107,27 @@ while True:
             timeout=15
         )
 
-        # 🔍 DEBUG RAW RESPONSE
-        if not r.text.strip():
+        # ---------- SAFETY CHECKS ----------
+        if not r.text or not r.text.strip():
             print("⚠️ Empty response from server")
             time.sleep(CHECK_INTERVAL)
             continue
 
         if "login" in r.text.lower():
-            print("🔐 SESSION EXPIRED — update PHPSESSID")
+            print("🔐 SESSION EXPIRED — UPDATE PHPSESSID")
             time.sleep(60)
+            continue
+
+        if "text/html" in (r.headers.get("Content-Type") or ""):
+            print("⚠️ HTML response received (ignored)")
+            time.sleep(CHECK_INTERVAL)
             continue
 
         try:
             data = r.json()
         except Exception:
-            print("⚠️ Non-JSON response (ignored)")
-            print(r.text[:200])
+            print("⚠️ JSON parse failed")
+            print("RAW:", r.text[:200])
             time.sleep(CHECK_INTERVAL)
             continue
 
@@ -111,7 +136,8 @@ while True:
             time.sleep(CHECK_INTERVAL)
             continue
 
-        rows.reverse()  # oldest → newest
+        # Oldest → Newest order
+        rows.reverse()
 
         for row in rows:
             ts, pool, number, service, message = row[:5]
@@ -124,7 +150,7 @@ while True:
             print("🧾 SMS:", message)
 
             if otp:
-                text = (
+                msg = (
                     f"🔐 *NEW OTP RECEIVED*\n"
                     f"━━━━━━━━━━━━━━\n"
                     f"🕒 `{ts}`\n"
@@ -132,10 +158,11 @@ while True:
                     f"📲 `{service}`\n"
                     f"🔢 *OTP:* `{otp}`\n"
                 )
-                send_telegram(text)
+                send_telegram(msg)
 
             sent.append(key)
 
+        # memory limit
         sent = sent[-10:]
         save_state({"sent": sent})
 
