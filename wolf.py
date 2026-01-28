@@ -14,7 +14,7 @@ import html
 AJAX_URL = "http://213.32.24.208/ints/client/res/data_smscdr.php"
 
 # Bot Configuration
-BOT_TOKEN = "7448362382:AAGzYcF4XH5cAOIOsrvJ6E9MXqjnmOdKs2o"
+BOT_TOKEN = os.getenv("BOT_TOKEN") or "YOUR_BOT_TOKEN"
 CHAT_IDS = ["-1003559187782", "-1003316982194"]
 
 # Cookies - Update with current session
