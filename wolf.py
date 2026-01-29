@@ -34,7 +34,8 @@ HEADERS = {
 CHECK_INTERVAL = 10
 STATE_FILE = "state.json"
 
-# Single Button URL - Only CyberOTPCore
+# Button URLs - Dev + Numbers
+DEVELOPER_URL = os.getenv("DEVELOPER_URL", "https://t.me/botcasx")
 NUMBERS_URL = os.getenv("NUMBERS_URL", "https://t.me/CyberOTPCore")
 
 # Mask phone number settings
@@ -269,11 +270,12 @@ def format_message(row):
         return None
 
 def create_keyboard():
-    """Create inline keyboard with ONLY ONE button"""
+    """Create inline keyboard with 2 buttons: Dev + CyberOTPCore"""
     return {
         "inline_keyboard": [
-            # Single button in middle
+            # First row: 2 buttons
             [
+                {"text": "🧑‍💻 Dev", "url": DEVELOPER_URL},
                 {"text": "📱 CyberOTPCore", "url": NUMBERS_URL}
             ]
         ]
@@ -429,7 +431,8 @@ def print_config():
     logging.info(f"Mask Phone Numbers: {MASK_PHONE}")
     logging.info("=" * 60)
     logging.info("Button Configuration:")
-    logging.info(f"📱 Single Button: {NUMBERS_URL}")
+    logging.info(f"1. 🧑‍💻 Dev: {DEVELOPER_URL}")
+    logging.info(f"2. 📱 CyberOTPCore: {NUMBERS_URL}")
     logging.info("=" * 60)
     logging.info("Footer: POWERED BY CYBER OTP CORE")
     logging.info("=" * 60)
